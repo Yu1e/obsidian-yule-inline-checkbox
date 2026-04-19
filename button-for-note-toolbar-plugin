@@ -1,0 +1,95 @@
+const DIGIT_CYCLE = ["\u2460","\u2461","\u2462","\u2463","\u2464","\u2465","\u2466","\u2467","\u2468","\u2789","\u246A","\u246B","\u246C","\u246D","\u246E","\u246F","\u2470","\u2471","\u2472","\u2473"];
+const editor = app.workspace.activeLeaf?.view?.editor;
+if (!editor) return;
+const c = editor.getCursor();
+const line = editor.getLine(c.line);
+
+// Находим все цифры в строке с позициями
+function findAllDigits(text) {
+  const result = [];
+  for (let ch = 0; ch < text.length; ch++) {
+    for (const icon of DIGIT_CYCLE) {
+      if (text.substring(ch, ch + icon.length) === icon) {
+        result.push({ pos: ch, icon, idx: DIGIT_CYCLE.indexOf(icon), len: icon.length });
+        ch += icon.length - 1;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+// Пересчитываем все цифры правее позиции начиная с нужного индекса
+function recalcRight(editor, lineNum, digits, startPos, startIdx) {
+  let offset = 0;
+  for (const digit of digits) {
+    if (digit.pos < startPos) continue;
+    const newPos = digit.pos + offset;
+    const newIcon = DIGIT_CYCLE[startIdx % DIGIT_CYCLE.length];
+    startIdx++;
+    const current = editor.getLine(lineNum).substring(newPos, newPos + digit.len);
+    if (current === digit.icon) {
+      editor.replaceRange(
+        newIcon,
+        { line: lineNum, ch: newPos },
+        { line: lineNum, ch: newPos + digit.len }
+      );
+      offset += newIcon.length - digit.len;
+    }
+  }
+}
+
+const allDigits = findAllDigits(line);
+
+// Ищем цифру рядом с курсором (для переключения)
+let nearFound = null, nearPos = -1, nearFoundIdx = -1;
+for (let p = c.ch; p >= Math.max(0, c.ch - 5); p--) {
+  for (let i = 0; i < DIGIT_CYCLE.length; i++) {
+    if (line.substring(p, p + DIGIT_CYCLE[i].length) === DIGIT_CYCLE[i]) {
+      nearFound = DIGIT_CYCLE[i]; nearPos = p; nearFoundIdx = i;
+      break;
+    }
+  }
+  if (nearFound) break;
+}
+
+if (nearFound) {
+  // Переключаем существующую и пересчитываем всё правее
+  const next = DIGIT_CYCLE[(nearFoundIdx + 1) % DIGIT_CYCLE.length];
+  let end = nearPos + nearFound.length;
+  while (end < line.length && (line.charCodeAt(end) === 0xFE0E || line.charCodeAt(end) === 0xFE0F)) end++;
+  editor.replaceRange(next, { line: c.line, ch: nearPos }, { line: c.line, ch: end });
+
+  // Пересчитываем всё правее
+  const rightDigits = allDigits.filter(f => f.pos > nearPos);
+  recalcRight(editor, c.line, rightDigits, nearPos + next.length, nearFoundIdx + 2);
+  editor.setCursor({ line: c.line, ch: nearPos + next.length });
+
+} else {
+  // Вставляем новую цифру
+  const leftDigits = allDigits.filter(f => f.pos < c.ch);
+  const rightDigits = allDigits.filter(f => f.pos >= c.ch);
+
+  // Максимальный индекс среди левых
+  let insertIdx;
+  if (leftDigits.length === 0) {
+    insertIdx = 0;
+  } else {
+    const maxLeft = leftDigits.reduce((a, b) => a.idx > b.idx ? a : b);
+    insertIdx = maxLeft.idx + 1;
+  }
+
+  const toInsert = DIGIT_CYCLE[insertIdx % DIGIT_CYCLE.length];
+
+  let ws = c.ch;
+  while (ws > 0 && !" \t,".includes(line[ws - 1])) ws--;
+
+  editor.replaceRange(toInsert + " ", { line: c.line, ch: ws });
+
+  // Пересчитываем все правые начиная с insertIdx + 1
+  const insertedLen = toInsert.length + 1;
+  const shiftedRight = rightDigits.map(d => ({ ...d, pos: d.pos + insertedLen }));
+  recalcRight(editor, c.line, shiftedRight, ws + insertedLen, insertIdx + 1);
+
+  editor.setCursor({ line: c.line, ch: ws + toInsert.length + 1 });
+}
