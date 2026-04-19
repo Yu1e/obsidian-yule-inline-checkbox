@@ -6,102 +6,36 @@ A plugin that transforms Unicode symbols into styled interactive checkboxes and 
 
 ![Demo](demoen.png)
 
-## Features
+Features
+Inline checkboxes — not in lists, but anywhere in the text.
+Click to toggle — cycles through states instantly.
+Two independent cycles:
+Checkboxes: ▢ → ☑ → ◧ → ☒ → ⚠ → ⍰ → ▢
+Smart Digits: ① → ② ... → ⑳ → ①
+Smart Sequence Management:
+Context-aware insertion: Automatically detects the previous number in a paragraph and inserts the next one.
+Auto-reindexing: If you insert a digit in the middle of a sequence, the plugin automatically increments all subsequent digits to maintain the correct order.
+Fully customizable — colors, sizes, and glow effects via CSS variables.
+Checkbox States
+Symbol	State	Description
+▢	Empty	Not started (Orange animated glow)
+☑	Done	Completed (Green filled square)
+◧	In Progress	Work in progress (Half-filled)
+☒	Cancelled	Cancelled/rejected (Gray)
+⚠	Important	Requires attention (Red square)
+⍰	Question	Needs clarification (Mustard square)
+Circled Digits
+① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ ⑫ ⑬ ⑭ ⑮ ⑯ ⑰ ⑱ ⑲ ⑳
 
-- **Inline checkboxes** — not in lists, but anywhere in the text
-- **Click to toggle** — cycles through states
-- **Two independent cycles:**
-  - Checkboxes: `▢ → ☑ → ◧ → ☒ → ⚠ → ⍰ → ▢`
-  - Digits: `① → ② → ③ → ④ → ⑤ → ⑥ → ⑦ → ⑧ → ⑨ → ①`
-- **Fully customizable** — colors, sizes, glow effects via CSS variables
+Use for priorities, numbered steps, or ratings. No more manual numbering — the plugin manages the sequence for you!
 
-## Checkbox States
+Installation
+Download the latest release (main.js, manifest.json, styles.css).
+Create a folder: .obsidian/plugins/Yule-inline-checkbox/.
+Move the files into that folder.
+Enable in Settings → Community Plugins.
 
-| Symbol | State | Description |
-|:------:|-------|-------------|
-| ▢ | Empty | Not started |
-| ☑ | Done | Completed |
-| ◧ | In Progress | Work in progress |
-| ☒ | Cancelled | Cancelled/rejected |
-| ⚠ | Important | Requires attention |
-| ⍰ | Question | Needs clarification |
-
-## Circled Digits
-
-`①` `②` `③` `④` `⑤` `⑥` `⑦` `⑧` `⑨`
-
-Use for priorities, numbered steps, ratings, etc.
-
-## Installation
-
-Manual (BRAT plugin).
-
-1. Download the latest release
-2. Extract to `.obsidian/plugins/inline-checkboxes/`
-3. Enable in Settings → Community Plugins
-
-
-Usage with Note Toolbar
-Add a button to insert/toggle checkboxes:
-
-JavaScript
-
-const icons = ["▢", "☑", "◧", "☒", "⚠", "⍰"];
-const editor = app.workspace.activeLeaf?.view?.editor;
-if (!editor) return;
-const c = editor.getCursor();
-const line = editor.getLine(c.line);
-
-let found = null, pos = -1, foundIdx = -1;
-
-for (let p = c.ch; p >= Math.max(0, c.ch - 5); p--) {
-  for (let i = 0; i < icons.length; i++) {
-    if (line.substring(p, p + icons[i].length) === icons[i]) {
-      found = icons[i]; pos = p; foundIdx = i;
-      break;
-    }
-  }
-  if (found) break;
-}
-
-if (found) {
-  const next = icons[(foundIdx + 1) % icons.length];
-  let end = pos + found.length;
-  while (end < line.length && (line.charCodeAt(end) === 0xFE0E || line.charCodeAt(end) === 0xFE0F)) end++;
-  editor.replaceRange(next, {line: c.line, ch: pos}, {line: c.line, ch: end});
-  editor.setCursor({line: c.line, ch: pos});
-} else {
-  let ws = c.ch;
-  while (ws > 0 && !" \t,".includes(line[ws - 1])) ws--;
-  editor.replaceRange("▢ ", {line: c.line, ch: ws});
-  editor.setCursor({line: c.line, ch: ws});
-}
-
-For digits, make another button and replace icons array with:
-
-JavaScript
-
-const icons = ["①","②","③","④","⑤","⑥","⑦","⑧","⑨"];
-
-# License
-
-MIT
-
-# Support
-
-This plugin was entirely created by Claude.
-
-## Contributing
-
-This plugin will not be submitted to the official Obsidian community plugins directory. If you find it useful and would like to see it there, feel free to fork and submit your own version.
-
-I'm not actively maintaining this plugin or accepting feature requests.
-
-Feel free to:
-- Fork this repository and adapt it to your needs
-- Create your own version with additional features
-- Share your improvements with the community
-
+---
 
 # Inline Checkboxes — плагин для Obsidian
 
@@ -109,156 +43,71 @@ Feel free to:
 
 ## Возможности
 
-- **Инлайн-чекбоксы** — не в списках, а в любом месте текста
-- **Клик для переключения** — циклическая смена состояний
+- **Инлайн-чекбоксы** — не в списках, а в любом месте текста.
+- **Клик для переключения** — циклическая смена состояний.
 - **Два независимых цикла:**
   - Флажки: `▢ → ☑ → ◧ → ☒ → ⚠ → ⍰ → ▢`
-  - Цифры: `① → ② → ③ → ④ → ⑤ → ⑥ → ⑦ → ⑧ → ⑨ → ①`
-- **Полная кастомизация** — цвета, размеры, эффекты свечения через CSS-переменные
+  - Цифры: `① → ② → ... → ⑩ → ... → ⑳ → ①`
+- **Умная нумерация (v2.0.0):**
+  - **Контекстная вставка:** Плагин находит ближайшую предыдущую цифру в абзаце и автоматически подставляет следующую по порядку.
+  - **Автоматический пересчет:** При вставке цифры в середину ряда все последующие цифры в этом абзаце автоматически увеличиваются, сохраняя правильную последовательность.
+- **Полная кастомизация** — цвета, размеры, эффекты свечения через CSS-переменные.
 
 ## Состояния флажков
 
 | Символ | Состояние | Описание |
 |:------:|-----------|----------|
-| ▢ | Пусто | Не начато |
-| ☑ | Готово | Завершено |
-| ◧ | В процессе | В работе |
-| ☒ | Отменено | Отменено/отклонено |
-| ⚠ | Важно | Требует внимания |
-| ⍰ | Вопрос | Нужно уточнение |
+| `▢` | Пусто | Не начато (оранжевое пульсирующее свечение) |
+| `☑` | Готово | Завершено (залитый зеленый квадрат) |
+| `◧` | В процессе | В работе (залит наполовину) |
+| `☒` | Отменено | Отменено/отклонено (серый) |
+| `⚠` | Важно | Требует внимания (красный квадрат) |
+| `⍰` | Вопрос | Нужно уточнение (горчичный квадрат) |
 
 ## Цифры в кружках
+`① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ ⑫ ⑬ ⑭ ⑮ ⑯ ⑰ ⑱ ⑲ ⑳`
 
-`①` `②` `③` `④` `⑤` `⑥` `⑦` `⑧` `⑨`
-
-Используйте для приоритетов, нумерованных шагов, рейтингов и т.д.
+Используйте для приоритетов, нумерованных шагов, рейтингов. Больше не нужно следить за нумерацией вручную — плагин сделает это за вас при вставке новой цифры.
 
 ## Установка
 
 ### Вручную
+1. Скачайте последний релиз (`main.js`, `manifest.json`, `styles.css`).
+2. Создайте папку `.obsidian/plugins/Yule-inline-checkbox/`.
+3. Поместите скачанные файлы в эту папку.
+4. Включите плагин в **Настройки → Сторонние плагины**.
 
-1. Скачайте последний релиз
-2. Распакуйте в `.obsidian/plugins/inline-checkboxes/`
-3. Включите в Настройки → Сторонние плагины
+Через плагин BRAT
+1. Установите плагин BRAT.
+2. В настройках BRAT нажмите Add Beta plugin.
+3. Вставьте ссылку на этот репозиторий: https://github.com/Yu1e/obsidian-inline-checkbox.git
+4. Нажмите Add Plugin, затем включите Inline Checkboxes в настройках сторонних плагинов.
 
 ## Использование
 
-
 ### Команды (палитра команд)
-- `Toggle inline checkbox` — вставить/переключить флажок
-- `Toggle circled digit` — вставить/переключить цифру
+- `Insert or toggle checkbox` — вставить/переключить флажок.
+- `Insert or toggle circled digit` — вставить следующую по порядку цифру или переключить существующую.
 
 ### Клик мышью
-Кликните по флажку или цифре в тексте — состояние переключится.
+Кликните по флажку или цифре в тексте — состояние переключится. При переключении цифр последующие цифры в строке также будут пересчитаны.
 
-Назначить горячие клавиши: Настройки → Горячие клавиши → "Inline Checkboxes"
-
-## Для изменения оформления редактируйте CSS-переменные в styles.css:
-
-CSS
-
-:root {
-  /* Цвета флажков */
-  --cb-empty:      #FF8C00;
-  --cb-done:       #739834;
-  --cb-progress:   #FFA500;
-  --cb-cancelled:  #808080;
-  --cb-important:  #a33333;
-  --cb-question:   #DFA000;
-
-  /* Эффекты свечения */
-  --cb-glow-empty: #FF8C00;
-  --cb-glow-prog:  #FFA500;
-
-  /* Цифры в кружках */
-  --cb-digit-size:  0.55em;
-  --cb-digit-color: #e040fb;
-  --cb-digit-glow:  #e040fb;
-}
+## Настройка оформления
+Для изменения цветов и размеров редактируйте переменные в начале файла `styles.css`:
 
 ### Использование с Note Toolbar
-Добавьте кнопку для вставки/переключения флажков:
+Код для вставки и переключения кнопок (флажки и умные цифры) прилагается отдельно: [code-for-note-toolbar-plugin-button.js](code-for-note-toolbar-plugin-button.js)
 
-#### JavaScript
-
-const icons = ["▢", "☑", "◧", "☒", "⚠", "⍰"];
-const editor = app.workspace.activeLeaf?.view?.editor;
-if (!editor) return;
-const c = editor.getCursor();
-const line = editor.getLine(c.line);
-
-let found = null, pos = -1, foundIdx = -1;
-
-for (let p = c.ch; p >= Math.max(0, c.ch - 5); p--) {
-  for (let i = 0; i < icons.length; i++) {
-    if (line.substring(p, p + icons[i].length) === icons[i]) {
-      found = icons[i]; pos = p; foundIdx = i;
-      break;
-    }
-  }
-  if (found) break;
-}
-
-if (found) {
-  const next = icons[(foundIdx + 1) % icons.length];
-  let end = pos + found.length;
-  while (end < line.length && (line.charCodeAt(end) === 0xFE0E || line.charCodeAt(end) === 0xFE0F)) end++;
-  editor.replaceRange(next, {line: c.line, ch: pos}, {line: c.line, ch: end});
-  editor.setCursor({line: c.line, ch: pos});
-} else {
-  let ws = c.ch;
-  while (ws > 0 && !" \t,".includes(line[ws - 1])) ws--;
-  editor.replaceRange("▢ ", {line: c.line, ch: ws});
-  editor.setCursor({line: c.line, ch: ws});
-}
-
-##### Для цифр добавьте вторую кнопку:
-
-const icons = ["①","②","③","④","⑤","⑥","⑦","⑧","⑨"];
-const editor = app.workspace.activeLeaf?.view?.editor;
-if (!editor) return;
-const c = editor.getCursor();
-const line = editor.getLine(c.line);
-
-let found = null, pos = -1, foundIdx = -1;
-
-for (let p = c.ch; p >= Math.max(0, c.ch - 5); p--) {
-  for (let i = 0; i < icons.length; i++) {
-    if (line.substring(p, p + icons[i].length) === icons[i]) {
-      found = icons[i]; pos = p; foundIdx = i;
-      break;
-    }
-  }
-  if (found) break;
-}
-
-if (found) {
-  const next = icons[(foundIdx + 1) % icons.length];
-  let end = pos + found.length;
-  while (end < line.length && (line.charCodeAt(end) === 0xFE0E || line.charCodeAt(end) === 0xFE0F)) end++;
-  editor.replaceRange(next, {line: c.line, ch: pos}, {line: c.line, ch: end});
-  editor.setCursor({line: c.line, ch: pos});
-} else {
-  let ws = c.ch;
-  while (ws > 0 && !" \t,".includes(line[ws - 1])) ws--;
-  editor.replaceRange("① ", {line: c.line, ch: ws});
-  editor.setCursor({line: c.line, ch: ws});
-}
-
-Лицензия
+## Лицензия
 MIT
 
-# Поддержка
-Плагин полностью создан Claude. 
+## Поддержка
+Плагин полностью создан Claude по запросу и под руководством пользователя.
 
-## Участие в разработке
+### Участие в разработке
+Этот плагин не будет отправлен в официальный каталог плагинов Obsidian. Если он кажется вам полезным — форкайте и публикуйте свою версию.
 
-Этот плагин не будет отправлен в официальный каталог плагинов Obsidian. Если он кажется вам полезным и вы хотели бы видеть его там — форкайте и подавайте свою версию.
-
-Я не планирую активно развивать этот плагин и не смогу выполнять запросы на доработку.
-
-Вы можете свободно:
-- Форкнуть репозиторий и адаптировать под свои нужды
-- Создать собственную версию с дополнительными функциями
-- Делиться улучшениями с сообществом
-
+Автор не планирует активно развивать этот плагин. Вы можете свободно:
+- Адаптировать код под свои нужды.
+- Создавать собственные версии с дополнительными функциями.
+- Делиться улучшениями с сообществом.
