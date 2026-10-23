@@ -572,6 +572,15 @@ ul > li.task-list-item[data-task="и"] > .task-list-item-checkbox:checked:after 
   box-sizing: border-box !important;
   position: relative !important;
   flex-shrink: 0;
+  cursor: pointer !important;
+}
+
+/* Одинаковый курсор на всех состояниях и значках */
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-task-line input.task-list-item-checkbox.task-list-item-checkbox::after,
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-task-line input.task-list-item-checkbox.task-list-item-checkbox::before,
+.markdown-source-view.mod-cm6 .inline-icon,
+.markdown-source-view.mod-cm6 .inline-icon * {
+  cursor: pointer !important;
 }
 
 /* Значок внутри отмеченного чекбокса — строго по центру квадрата */
