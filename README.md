@@ -57,6 +57,9 @@ Use these for priorities, numbered steps, or ratings. You no longer need to trac
 ### Mouse Click
 Click any checkbox or digit in the text to toggle its state. When switching digits, subsequent digits in the line will be automatically re-indexed.
 
+### Hover menu
+Hover over a checkbox or digit to pick any state from a list. Digits are shown as a 4 × 5 grid.
+
 ## Markdown Tasks `- [ ]`
 
 The plugin also styles regular Markdown tasks (states `[ ]`, `[ю]`, `[+]`, `[-]`, `[а]`, `[!]`, `[?]`, `[=]`, `[и]`) in Live Preview:
@@ -160,6 +163,9 @@ The author does not plan to actively develop this plugin. You are free to:
 
 ### Клик мышью
 Кликните по флажку или цифре в тексте — состояние переключится. При переключении цифр последующие цифры в строке также будут пересчитаны.
+
+### Меню при наведении
+При наведении на флажок или цифру открывается список всех состояний. Цифры показаны сеткой 4 × 5.
 
 ## Задачи Markdown `- [ ]`
 

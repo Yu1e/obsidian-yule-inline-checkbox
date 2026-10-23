@@ -76,6 +76,19 @@ const SVG_QUESTION = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24
    ВИДЖЕТ
    ═══════════════════════════════════════════════ */
 
+/* Содержимое значка: SVG, пустой символ или сам глиф */
+function fillIcon(s, icon) {
+  if (icon === "☑") {
+    s.textContent = '\u200B';
+  } else if (icon === "⚠") {
+    s.innerHTML = SVG_IMPORTANT;
+  } else if (icon === "⍰") {
+    s.innerHTML = SVG_QUESTION;
+  } else {
+    s.textContent = icon;
+  }
+}
+
 class IconWidget extends WidgetType {
   constructor(icon, cls, pos, len) {
     super();
@@ -88,16 +101,8 @@ class IconWidget extends WidgetType {
   toDOM(view) {
     const s = document.createElement('span');
     s.className = `inline-icon icon-${this.cls}`;
-
-    if (this.icon === "☑") {
-      s.textContent = '\u200B';
-    } else if (this.icon === "⚠") {
-      s.innerHTML = SVG_IMPORTANT;
-    } else if (this.icon === "⍰") {
-      s.innerHTML = SVG_QUESTION;
-    } else {
-      s.textContent = this.icon;
-    }
+    s.dataset.icon = this.icon;
+    fillIcon(s, this.icon);
 
     s.addEventListener('click', (e) => {
       e.preventDefault();
@@ -465,25 +470,77 @@ function setTaskState(view, lineFrom, ch) {
   });
 }
 
-class TaskStateMenu {
+/* --- значки-глифы: флажки и цифры --- */
+
+const FLAG_LABELS = {
+  "▢": "Пусто",
+  "☑": "Готово",
+  "◧": "В процессе",
+  "☒": "Отменено",
+  "⚠": "Важно",
+  "⍰": "Вопрос"
+};
+
+function isGlyphIcon(el) {
+  return !!el && el.nodeType === 1 &&
+    el.classList.contains("inline-icon") &&
+    !!el.dataset.icon &&
+    !!el.closest(".cm-editor") &&
+    !el.closest(".yic-task-menu");
+}
+
+/* Где в документе стоит значок; длина — с селекторами варианта FE0E/FE0F */
+function getGlyphContext(span) {
+  if (!isGlyphIcon(span)) return null;
+  const view = EditorView.findFromDOM(span.closest(".cm-editor"));
+  if (!view) return null;
+  const icon = span.dataset.icon;
+  let from;
+  try { from = view.posAtDOM(span); } catch (e) { return null; }
+  const doc = view.state.doc;
+  if (doc.sliceString(from, from + icon.length) !== icon) return null;
+  let to = from + icon.length;
+  while (to < doc.length) {
+    const c = doc.sliceString(to, to + 1).charCodeAt(0);
+    if (c !== 0xFE0E && c !== 0xFE0F) break;
+    to++;
+  }
+  return { view, from, to, icon };
+}
+
+function setGlyph(ctx, icon) {
+  const { view, from, to } = ctx;
+  if (view.state.doc.sliceString(from, from + ctx.icon.length) !== ctx.icon) return;
+  if (icon === ctx.icon) return;
+  view.dispatch({
+    changes: { from, to, insert: icon },
+    userEvent: "input.yic-glyph"
+  });
+}
+
+/* --- всплывающее меню состояний (задачи, флажки, цифры) --- */
+
+class StateMenu {
   constructor() {
     this.el = null;
-    this.ctx = null;
     this.anchor = null;
     this.showTimer = null;
     this.hideTimer = null;
   }
 
-  scheduleShow(input) {
+  scheduleShow(anchor) {
     this.cancelHide();
-    if (this.anchor === input && this.el) return;
+    if (this.anchor === anchor && this.el) return;
+    if (this.pending === anchor && this.showTimer) return;
     clearTimeout(this.showTimer);
-    this.showTimer = setTimeout(() => this.show(input), MENU_SHOW_DELAY);
+    this.pending = anchor;
+    this.showTimer = setTimeout(() => this.show(anchor), MENU_SHOW_DELAY);
   }
 
   cancelShow() {
     clearTimeout(this.showTimer);
     this.showTimer = null;
+    this.pending = null;
   }
 
   scheduleHide() {
@@ -497,47 +554,39 @@ class TaskStateMenu {
     this.hideTimer = null;
   }
 
-  show(input) {
+  show(anchor) {
     this.showTimer = null;
-    if (!input.isConnected) return;
-    const ctx = getTaskContext(input);
-    if (!ctx) return;
+    this.pending = null;
+    if (!anchor.isConnected) return;
+    const spec = isTaskCheckbox(anchor) ? taskMenuSpec(anchor) : glyphMenuSpec(anchor);
+    if (!spec) return;
     this.hide();
 
-    this.ctx = ctx;
-    this.anchor = input;
-    const doc = input.ownerDocument;
+    this.anchor = anchor;
+    const doc = anchor.ownerDocument;
     const menu = doc.body.createDiv({ cls: "yic-task-menu" });
+    if (spec.grid) menu.addClass("is-grid");
 
-    for (const [ch, label] of TASK_STATES) {
-      const item = menu.createDiv({ cls: "yic-task-menu-item" });
-      if (ch === ctx.char) item.addClass("is-current");
+    for (const item of spec.items) {
+      const el = menu.createDiv({ cls: "yic-task-menu-item" });
+      if (item.value === spec.current) el.addClass("is-current");
+      if (item.title) el.setAttribute("aria-label", item.title);
+      item.render(el);
 
-      const box = item.createEl("input", { cls: "task-list-item-checkbox", type: "checkbox" });
-      box.tabIndex = -1;
-      if (ch !== " ") {
-        box.checked = true;
-        box.setAttribute("data-task", ch);
-      }
-      item.createSpan({ cls: "yic-task-menu-label", text: label });
-      item.createSpan({ cls: "yic-task-menu-key", text: `[${ch}]` });
-
-      item.addEventListener("mousedown", (e) => e.preventDefault());
-      item.addEventListener("click", (e) => {
+      el.addEventListener("mousedown", (e) => e.preventDefault());
+      el.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const { view, lineFrom } = this.ctx;
         this.hide();
-        setTaskState(view, lineFrom, ch);
-        view.focus();
+        spec.apply(item.value);
       });
     }
 
     menu.addEventListener("mouseenter", () => this.cancelHide());
     menu.addEventListener("mouseleave", () => this.scheduleHide());
 
-    /* под чекбоксом, не выходя за окно */
-    const r = input.getBoundingClientRect();
+    /* под значком, не выходя за окно */
+    const r = anchor.getBoundingClientRect();
     const win = doc.defaultView;
     const mw = menu.offsetWidth, mh = menu.offsetHeight;
     let left = r.left;
@@ -555,13 +604,62 @@ class TaskStateMenu {
     this.cancelHide();
     if (this.el) this.el.remove();
     this.el = null;
-    this.ctx = null;
     this.anchor = null;
   }
 
   contains(node) {
     return !!this.el && !!node && this.el.contains(node);
   }
+}
+
+/* Меню задачи: список с чекбоксом, названием и символом */
+function taskMenuSpec(input) {
+  const ctx = getTaskContext(input);
+  if (!ctx) return null;
+  return {
+    current: ctx.char,
+    items: TASK_STATES.map(([ch, label]) => ({
+      value: ch,
+      render(el) {
+        const box = el.createEl("input", { cls: "task-list-item-checkbox", type: "checkbox" });
+        box.tabIndex = -1;
+        if (ch !== " ") {
+          box.checked = true;
+          box.setAttribute("data-task", ch);
+        }
+        el.createSpan({ cls: "yic-task-menu-label", text: label });
+        el.createSpan({ cls: "yic-task-menu-key", text: `[${ch}]` });
+      }
+    })),
+    apply(ch) {
+      setTaskState(ctx.view, ctx.lineFrom, ch);
+      ctx.view.focus();
+    }
+  };
+}
+
+/* Меню значка: флажки списком, цифры сеткой 4 × 5 */
+function glyphMenuSpec(span) {
+  const ctx = getGlyphContext(span);
+  if (!ctx) return null;
+  const isDigit = DIGIT_CYCLE.includes(ctx.icon);
+  const icons = isDigit ? DIGIT_CYCLE : CHECKBOX_CYCLE;
+  return {
+    current: ctx.icon,
+    grid: isDigit,
+    items: icons.map((icon) => ({
+      value: icon,
+      render(el) {
+        const g = el.createSpan({ cls: `inline-icon icon-${ICON_MAP[icon]}` });
+        fillIcon(g, icon);
+        if (!isDigit) el.createSpan({ cls: "yic-task-menu-label", text: FLAG_LABELS[icon] || "" });
+      }
+    })),
+    apply(icon) {
+      setGlyph(ctx, icon);
+      ctx.view.focus();
+    }
+  };
 }
 
 /* ═══════════════════════════════════════════════
@@ -572,7 +670,7 @@ class InlineCheckboxPlugin extends Plugin {
   async onload() {
     this.registerEditorExtension([ext, taskNumbersExt]);
 
-    this.taskMenu = new TaskStateMenu();
+    this.taskMenu = new StateMenu();
     this.register(() => this.taskMenu.hide());
     this.registerTaskHandlers(window);
     this.registerEvent(this.app.workspace.on("window-open", (_w, win) => this.registerTaskHandlers(win)));
@@ -624,12 +722,27 @@ class InlineCheckboxPlugin extends Plugin {
       setTaskState(ctx.view, ctx.lineFrom, nextTaskState(ctx.char));
     }, opts);
 
+    /* щелчок по глифу переключает его сам (IconWidget), меню убираем */
+    this.registerDomEvent(win, "click", (e) => {
+      const g = e.target && e.target.closest && e.target.closest(".inline-icon");
+      if (isGlyphIcon(g)) menu.hide();
+    }, opts);
+
+    const hoverTarget = (t) => {
+      if (isTaskCheckbox(t)) return t;
+      const g = t && t.closest && t.closest(".inline-icon");
+      return isGlyphIcon(g) ? g : null;
+    };
+
     this.registerDomEvent(win, "mouseover", (e) => {
-      if (isTaskCheckbox(e.target)) menu.scheduleShow(e.target);
+      const a = hoverTarget(e.target);
+      if (a) menu.scheduleShow(a);
     }, opts);
 
     this.registerDomEvent(win, "mouseout", (e) => {
-      if (!isTaskCheckbox(e.target)) return;
+      const a = hoverTarget(e.target);
+      if (!a) return;
+      if (a.contains(e.relatedTarget)) return;
       if (menu.contains(e.relatedTarget)) return;
       if (menu.el) menu.scheduleHide(); else menu.cancelShow();
     }, opts);

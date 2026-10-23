@@ -520,3 +520,28 @@ ul > li.task-list-item[data-task="и"] > .task-list-item-checkbox:checked:after 
   color: var(--text-faint);
   font-family: var(--font-monospace);
 }
+
+/* Цифры в меню — сетка 4 ряда × 5 */
+.yic-task-menu.is-grid {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  gap: 2px;
+  min-width: 0;
+}
+
+.yic-task-menu.is-grid .yic-task-menu-item {
+  justify-content: center;
+  padding: 4px 6px;
+}
+
+.yic-task-menu .inline-icon.icon-digit,
+.yic-task-menu .inline-icon.icon-digit2 {
+  font-size: 1.4em !important;
+  top: 0;
+}
+
+.yic-task-menu .inline-icon {
+  flex: 0 0 auto;
+  min-width: 26px;
+  text-align: center;
+}
