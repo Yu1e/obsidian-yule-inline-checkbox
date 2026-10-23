@@ -365,7 +365,7 @@ ul > li.task-list-item[data-task="-"] > .task-list-item-checkbox:checked:after {
 /* стиль текста отменённой задачи */
 .markdown-source-view.mod-cm6 .HyperMD-task-line[data-task="-"],
 ul > li.task-list-item[data-task="-"] {
-    text-decoration: none;
+    text-decoration: line-through;
     color: #a0a0a0; /* серый цвет текста */
     opacity: 0.7;
 }
