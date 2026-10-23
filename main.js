@@ -300,14 +300,14 @@ const TASK_CYCLE = [" ", "ю", "+", "-"];
 const TASK_STATES = [
   [" ", "Не начато"],
   ["ю", "В работе"],
-  ["+", "Готово"],
+  ["+", "Готово, см."],
   ["-", "Отказ"],
   ["а", "Срочно"],
   ["!", "Важно"],
   ["?", "Вопрос"],
   ["=", "Пауза"],
   ["и", "Работает ИИ"],
-  ["x", "Выполнено (x)"]
+  ["x", "Закрыто"]
 ];
 
 const MENU_SHOW_DELAY = 400;   // мс до появления меню
@@ -749,7 +749,11 @@ class InlineCheckboxPlugin extends Plugin {
         e.stopImmediatePropagation();
         menu.hide();
         if (e.button !== 0) return;
-        setTaskState(ctx.view, ctx.lineFrom, nextTaskState(ctx.char));
+        /* После отмены щелчка браузер возвращает чекбоксу прежнюю отметку.
+           Меняем текст уже после этого, иначе пустой флажок так и
+           остаётся пустым на вид */
+        const next = nextTaskState(ctx.char);
+        setTimeout(() => setTaskState(ctx.view, ctx.lineFrom, next), 0);
         return;
       }
       /* щелчок по глифу переключает его сам (IconWidget), меню убираем */
