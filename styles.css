@@ -20,7 +20,7 @@
 --cb-digit2-color: #e88afc;
 --cb-digit2-glow:  #e88afc;
   --cb-digit-glow:  #e040fb;
-  --cb-digit-task-size: 1em;   /* ①–⑨ внутри задач - [ ] */
+  --cb-digit-task-size: 1.4em;   /* ①–⑨ внутри задач - [ ] */
 }
 
 /* =============================================
