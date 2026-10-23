@@ -441,15 +441,42 @@ function isTaskCheckbox(el) {
     !el.closest(".yic-task-menu");
 }
 
-/* Где в документе стоит чекбокс и какой у него символ */
+/* Чекбокс задачи под указателем: сам input или любой элемент строки задачи,
+   если указатель попадает в прямоугольник чекбокса (на случай, когда поверх
+   чекбокса лежит другой элемент) */
+function taskCheckboxAt(e) {
+  const t = e.target;
+  if (!t || t.nodeType !== 1) return null;
+  if (isTaskCheckbox(t)) return t;
+  if (t.closest(".yic-task-menu")) return null;
+  const lineEl = t.closest(".markdown-source-view.is-live-preview .cm-line");
+  if (!lineEl) return null;
+  const input = lineEl.querySelector("input.task-list-item-checkbox");
+  if (!input || !isTaskCheckbox(input)) return null;
+  const r = input.getBoundingClientRect();
+  const pad = 3;
+  if (e.clientX < r.left - pad || e.clientX > r.right + pad ||
+      e.clientY < r.top - pad || e.clientY > r.bottom + pad) return null;
+  return input;
+}
+
+/* Где в документе стоит чекбокс и какой у него символ.
+   Строку берём по её DOM-элементу .cm-line: позиция внутри виджета
+   чекбокса может указывать на соседнюю строку */
 function getTaskContext(input) {
   if (!isTaskCheckbox(input)) return null;
   const cmEl = input.closest(".cm-editor");
   if (!cmEl) return null;
   const view = EditorView.findFromDOM(cmEl);
   if (!view) return null;
-  let pos;
-  try { pos = view.posAtDOM(input); } catch (e) { return null; }
+  const lineEl = input.closest(".cm-line");
+  let pos = null;
+  try { if (lineEl) pos = view.posAtDOM(lineEl, 0); } catch (e) { pos = null; }
+  if (pos === null) {
+    const r = input.getBoundingClientRect();
+    pos = view.posAtCoords({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+  }
+  if (pos === null) return null;
   const line = view.state.doc.lineAt(pos);
   const m = TASK_LINE_RE.exec(line.text);
   if (!m) return null;
@@ -700,52 +727,53 @@ class InlineCheckboxPlugin extends Plugin {
     const menu = this.taskMenu;
     const opts = { capture: true };
 
+    /* Не пускаем нажатие к Obsidian, иначе он сам переключит [ ] ↔ [x] */
     const block = (e) => {
-      if (!isTaskCheckbox(e.target)) return;
+      const input = taskCheckboxAt(e);
+      if (!input || !getTaskContext(input)) return;
       e.stopPropagation();
       e.stopImmediatePropagation();
-      if (e.type !== "pointerdown") e.preventDefault();
+      if (e.type !== "pointerdown" && e.type !== "pointerup") e.preventDefault();
     };
-    this.registerDomEvent(win, "pointerdown", block, opts);
-    this.registerDomEvent(win, "mousedown", block, opts);
-    this.registerDomEvent(win, "mouseup", block, opts);
+    for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup"]) {
+      this.registerDomEvent(win, type, block, opts);
+    }
 
     this.registerDomEvent(win, "click", (e) => {
-      if (!isTaskCheckbox(e.target)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      if (e.button !== 0) return;
-      const ctx = getTaskContext(e.target);
-      menu.hide();
-      if (!ctx) return;
-      setTaskState(ctx.view, ctx.lineFrom, nextTaskState(ctx.char));
-    }, opts);
-
-    /* щелчок по глифу переключает его сам (IconWidget), меню убираем */
-    this.registerDomEvent(win, "click", (e) => {
+      const input = taskCheckboxAt(e);
+      if (input) {
+        const ctx = getTaskContext(input);
+        if (!ctx) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        menu.hide();
+        if (e.button !== 0) return;
+        setTaskState(ctx.view, ctx.lineFrom, nextTaskState(ctx.char));
+        return;
+      }
+      /* щелчок по глифу переключает его сам (IconWidget), меню убираем */
       const g = e.target && e.target.closest && e.target.closest(".inline-icon");
       if (isGlyphIcon(g)) menu.hide();
     }, opts);
 
-    const hoverTarget = (t) => {
-      if (isTaskCheckbox(t)) return t;
+    const hoverTarget = (e) => {
+      const input = taskCheckboxAt(e);
+      if (input) return input;
+      const t = e.target;
       const g = t && t.closest && t.closest(".inline-icon");
       return isGlyphIcon(g) ? g : null;
     };
 
-    this.registerDomEvent(win, "mouseover", (e) => {
-      const a = hoverTarget(e.target);
-      if (a) menu.scheduleShow(a);
-    }, opts);
-
-    this.registerDomEvent(win, "mouseout", (e) => {
-      const a = hoverTarget(e.target);
-      if (!a) return;
-      if (a.contains(e.relatedTarget)) return;
-      if (menu.contains(e.relatedTarget)) return;
-      if (menu.el) menu.scheduleHide(); else menu.cancelShow();
-    }, opts);
+    /* Наведение отслеживается по движению: чекбокс может быть
+       закрыт другим элементом строки, и mouseover на нём не срабатывает */
+    this.registerDomEvent(win, "mousemove", (e) => {
+      const a = hoverTarget(e);
+      if (a) { menu.scheduleShow(a); return; }
+      if (menu.contains(e.target)) { menu.cancelHide(); return; }
+      if (menu.el) { if (!menu.hideTimer) menu.scheduleHide(); }
+      else menu.cancelShow();
+    }, { capture: true, passive: true });
 
     this.registerDomEvent(win, "keydown", () => menu.hide(), opts);
     this.registerDomEvent(win, "wheel", (e) => {
