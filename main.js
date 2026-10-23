@@ -349,22 +349,16 @@ class TaskNumWidget extends WidgetType {
 }
 
 /* Возвращает [{pos, num}] — позиция маркера списка и номер задачи.
-   Каждый уровень вложенности считается отдельно с 1.
+   Каждый уровень вложенности считается отдельно с 1, номер подзадачи
+   собирается из номера родительской задачи: 1, 1.1, 1.1.1.
    Номер ставится, только если на уровне больше одного пункта
    (как в режиме чтения). Задачи в нумерованных списках не нумеруются. */
 function computeTaskNumbers(doc, tabSize) {
-  const out = [];
+  const levels = [];   // все уровни в порядке появления
   const stack = [];
   let quote = null, inFence = false, inFm = false;
 
-  const flush = (lvl) => {
-    if (lvl.ordered || lvl.items < 2) return;
-    lvl.tasks.forEach((pos, i) => out.push({ pos, num: i + 1 }));
-  };
-  const closeAll = () => {
-    while (stack.length) flush(stack.pop());
-    quote = null;
-  };
+  const closeAll = () => { stack.length = 0; quote = null; };
 
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
@@ -394,21 +388,34 @@ function computeTaskNumbers(doc, tabSize) {
     const indent = visualWidth(m[2], tabSize);
     const ordered = /\d/.test(m[3]);
 
-    while (stack.length && stack[stack.length - 1].indent > indent) flush(stack.pop());
+    while (stack.length && stack[stack.length - 1].indent > indent) stack.pop();
     let top = stack[stack.length - 1];
     if (top && top.indent === indent && top.ordered !== ordered) {
-      flush(stack.pop());
+      stack.pop();
       top = null;
     }
     if (!top || top.indent < indent) {
-      top = { indent, ordered, items: 0, tasks: [] };
+      const parentLevel = stack[stack.length - 1];
+      const parentItem = parentLevel ? parentLevel.list[parentLevel.list.length - 1] : null;
+      top = { indent, ordered, list: [], parentItem };
       stack.push(top);
+      levels.push(top);
     }
 
-    top.items++;
-    if (m[4] !== undefined) top.tasks.push(line.from + m[1].length + m[2].length);
+    top.list.push({ pos: line.from + m[1].length + m[2].length, task: m[4] !== undefined, label: null });
   }
-  closeAll();
+
+  const out = [];
+  for (const lvl of levels) {
+    if (lvl.ordered || lvl.list.length < 2) continue;
+    const prefix = lvl.parentItem && lvl.parentItem.label ? lvl.parentItem.label + "." : "";
+    let k = 0;
+    for (const item of lvl.list) {
+      if (!item.task) continue;
+      item.label = prefix + (++k);
+      out.push({ pos: item.pos, num: item.label });
+    }
+  }
   return out;
 }
 
