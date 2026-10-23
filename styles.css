@@ -443,6 +443,7 @@ ul > li.task-list-item[data-task="и"] > .task-list-item-checkbox:checked:after 
 :root {
   --yic-num-color: #888;
   --yic-num-size:  0.55em;
+  --yic-num-min:   11px;    /* номера не мельче этого размера */
   --yic-num-gap:   0.4em;   /* отступ номера влево от чекбокса */
   --yic-num-y:     0em;     /* сдвиг вниз (+) или вверх (−) от линии текста */
 }
@@ -461,7 +462,7 @@ ul > li.task-list-item[data-task="и"] > .task-list-item-checkbox:checked:after 
   position: absolute;
   right: var(--yic-num-gap);
   bottom: calc(-1 * var(--yic-num-y));
-  font-size: var(--yic-num-size);
+  font-size: max(var(--yic-num-size), var(--yic-num-min));
   color: var(--yic-num-color);
   line-height: 1;
   white-space: nowrap;
