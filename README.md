@@ -16,6 +16,7 @@ This plugin transforms Unicode characters into stylized, interactive pseudo-chec
 - **Smart Numbering (v2.0.0):**
   - **Context-aware insertion:** The plugin finds the nearest preceding digit in the paragraph and automatically inserts the next one in the sequence.
   - **Auto-reindexing:** When you insert a digit in the middle of a row, all subsequent digits in that paragraph are automatically incremented to maintain the correct order.
+- **Markdown tasks** (v3.1.0) — styles for custom task states, numbering, state cycling on click and a hover menu in Live Preview.
 - **Full Customization** — change colors, sizes, and glow effects via CSS variables.
 
 ## Checkbox States
@@ -38,14 +39,14 @@ Use these for priorities, numbered steps, or ratings. You no longer need to trac
 
 ### Manual
 1. Download the latest release (`main.js`, `manifest.json`, `styles.css`).
-2. Create a folder named `.obsidian/plugins/Yule-inline-checkbox/`.
+2. Create a folder named `.obsidian/plugins/yule-inline-checkbox/`.
 3. Place the downloaded files into this folder.
 4. Enable the plugin in **Settings → Community Plugins**.
 
 ### Via BRAT
 1. Install the [BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin.
 2. In BRAT settings, click **Add Beta plugin**.
-3. Paste the repository link: `https://github.com/Yu1e/obsidian-inline-checkbox.git`
+3. Paste the repository link: `https://github.com/Yu1e/obsidian-yule-inline-checkbox`
 4. Click **Add Plugin**, then enable **Inline Checkboxes** in the Community Plugins settings.
 
 ## Usage
@@ -62,12 +63,27 @@ Hover over a checkbox or digit to pick any state from a list. Digits are shown a
 
 ## Markdown Tasks `- [ ]`
 
-The plugin also styles regular Markdown tasks (states `[ ]`, `[ю]`, `[+]`, `[-]`, `[а]`, `[!]`, `[?]`, `[=]`, `[и]`) in Live Preview:
-- click on a task checkbox cycles `[ ] → [ю] → [+] → [-] → [ ]`; any other state goes to `[ ]`;
-- hovering over a checkbox opens a list of all states;
-- tasks are numbered separately at each nesting level; a list with a single item gets no number.
+The plugin also styles regular Markdown tasks in Live Preview. This replaces the separate `checkboxes_Yule.css` snippet.
 
-Number position and color are set by the `--yic-num-*` variables in `styles.css`.
+| State | Meaning |
+|:-----:|---------|
+| `[ ]` | Not started |
+| `[ю]` | In progress |
+| `[+]` | Done, see notes |
+| `[-]` | Rejected (text is struck through) |
+| `[а]` | Urgent |
+| `[!]` | Important |
+| `[?]` | Question |
+| `[=]` | Paused |
+| `[и]` | AI is working |
+| `[x]` | Closed |
+
+- **Click** on a task checkbox cycles `[ ] → [ю] → [+] → [-] → [ ]`; any other state goes to `[ ]`.
+- **Hover menu** — after a short delay a list of all states opens; for checkboxes `▢☑◧…` the list is the same, for circled digits it is a 4 × 5 grid.
+- **Numbering** — tasks are numbered per nesting level, sub-tasks as `1.1`, `1.2.1` and so on. A list with a single item gets no number. Tasks in ordered lists (`1.`) are not numbered.
+- **Digits inside tasks** — `①–⑨` use the size from `--cb-digit-task-size`.
+
+Number position, color and size: `--yic-num-*` variables in `styles.css`.
 
 ## Customization
 To change colors and sizes, edit the variables at the beginning of the `styles.css` file:
@@ -123,6 +139,7 @@ The author does not plan to actively develop this plugin. You are free to:
 - **Умная нумерация (v2.0.0):**
   - **Контекстная вставка:** Плагин находит ближайшую предыдущую цифру в абзаце и автоматически подставляет следующую по порядку.
   - **Автоматический пересчет:** При вставке цифры в середину ряда все последующие цифры в этом абзаце автоматически увеличиваются, сохраняя правильную последовательность.
+- **Задачи Markdown** (v3.1.0) — оформление своих состояний, нумерация, переключение щелчком и меню при наведении в Live Preview.
 - **Полная кастомизация** — цвета, размеры, эффекты свечения через CSS-переменные.
 
 ## Состояния флажков
@@ -145,14 +162,14 @@ The author does not plan to actively develop this plugin. You are free to:
 
 ### Вручную
 1. Скачайте последний релиз (`main.js`, `manifest.json`, `styles.css`).
-2. Создайте папку `.obsidian/plugins/Yule-inline-checkbox/`.
+2. Создайте папку `.obsidian/plugins/yule-inline-checkbox/`.
 3. Поместите скачанные файлы в эту папку.
 4. Включите плагин в **Настройки → Сторонние плагины**.
 
 Через плагин BRAT
 1. Установите плагин BRAT.
 2. В настройках BRAT нажмите Add Beta plugin.
-3. Вставьте ссылку на этот репозиторий: https://github.com/Yu1e/obsidian-inline-checkbox.git
+3. Вставьте ссылку на этот репозиторий: https://github.com/Yu1e/obsidian-yule-inline-checkbox
 4. Нажмите Add Plugin, затем включите Inline Checkboxes в настройках сторонних плагинов.
 
 ## Использование
@@ -169,12 +186,27 @@ The author does not plan to actively develop this plugin. You are free to:
 
 ## Задачи Markdown `- [ ]`
 
-Плагин оформляет и обычные задачи Markdown (состояния `[ ]`, `[ю]`, `[+]`, `[-]`, `[а]`, `[!]`, `[?]`, `[=]`, `[и]`) в Live Preview:
-- щелчок по чекбоксу задачи переключает `[ ] → [ю] → [+] → [-] → [ ]`, любое другое состояние сменяется на `[ ]`;
-- при наведении на чекбокс открывается список всех состояний;
-- задачи нумеруются отдельно на каждом уровне вложенности, у списка из одного пункта номера нет.
+Плагин оформляет и обычные задачи Markdown в Live Preview. Заменяет отдельный сниппет `checkboxes_Yule.css`.
 
-Положение и цвет номеров задаются переменными `--yic-num-*` в `styles.css`.
+| Состояние | Значение |
+|:---------:|----------|
+| `[ ]` | Не начато |
+| `[ю]` | В работе |
+| `[+]` | Готово, см. |
+| `[-]` | Отказ (текст зачёркнут) |
+| `[а]` | Срочно |
+| `[!]` | Важно |
+| `[?]` | Вопрос |
+| `[=]` | Пауза |
+| `[и]` | Работает ИИ |
+| `[x]` | Закрыто |
+
+- **Щелчок** по чекбоксу задачи переключает `[ ] → [ю] → [+] → [-] → [ ]`, любое другое состояние сменяется на `[ ]`.
+- **Меню при наведении** — через короткую паузу открывается список всех состояний; для флажков `▢☑◧…` тоже список, для цифр в кружках — сетка 4 × 5.
+- **Нумерация** — задачи нумеруются отдельно на каждом уровне вложенности, подзадачи вида `1.1`, `1.2.1`. У списка из одного пункта номера нет. Задачи в нумерованных списках (`1.`) не нумеруются.
+- **Цифры внутри задач** — `①–⑨` берут размер из `--cb-digit-task-size`.
+
+Положение, цвет и размер номеров: переменные `--yic-num-*` в `styles.css`.
 
 ## Настройка оформления
 Для изменения цветов и размеров редактируйте переменные в начале файла `styles.css`:
