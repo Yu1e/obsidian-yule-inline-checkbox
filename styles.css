@@ -497,6 +497,8 @@ ul > li.task-list-item[data-task="и"] > .task-list-item-checkbox:checked:after 
 .yic-task-menu-item {
   display: flex;
   align-items: center;
+  min-height: calc(var(--yic-cb-size-on) + 10px);
+  box-sizing: border-box;
   gap: 10px;
   padding: 4px 8px;
   border-radius: var(--radius-s, 4px);
@@ -513,10 +515,29 @@ ul > li.task-list-item[data-task="и"] > .task-list-item-checkbox:checked:after 
   font-weight: 600;
 }
 
-.yic-task-menu-item > input.task-list-item-checkbox.task-list-item-checkbox {
-  margin: 0 !important;
+/* Ячейка под чекбокс: все флажки по центру одной и той же ячейки */
+.yic-task-menu-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
+  width: calc(var(--yic-cb-size-on) + 6px);
+  height: calc(var(--yic-cb-size-on) + 6px);
+}
+
+.yic-task-menu-slot > input.task-list-item-checkbox.task-list-item-checkbox {
+  width: var(--yic-cb-size-on) !important;
+  height: var(--yic-cb-size-on) !important;
+  margin: 0 !important;
+  top: 0 !important;
+  box-sizing: border-box !important;
+  position: relative !important;
   pointer-events: none;
+}
+
+.yic-task-menu-slot > input.task-list-item-checkbox.task-list-item-checkbox:not(:checked) {
+  width: var(--yic-cb-size) !important;
+  height: var(--yic-cb-size) !important;
 }
 
 .yic-task-menu-label {
@@ -560,19 +581,32 @@ ul > li.task-list-item[data-task="и"] > .task-list-item-checkbox:checked:after 
    ============================================= */
 
 :root {
-  --yic-cb-size: 18px;   /* сторона квадрата */
-  --yic-cb-ml:   12px;   /* отступ слева */
-  --yic-cb-mr:   8px;    /* отступ до текста */
+  --yic-cb-size:    18px;   /* пустой флажок [ ] (к нему добавляется свечение) */
+  --yic-cb-size-on: 20px;   /* флажки со статусом */
+  --yic-cb-ml:      12px;   /* отступ слева (для пустого) */
+  --yic-cb-mr:      8px;    /* отступ до текста (для пустого) */
 }
 
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-task-line input.task-list-item-checkbox.task-list-item-checkbox {
-  width: var(--yic-cb-size) !important;
-  height: var(--yic-cb-size) !important;
-  margin: 0 var(--yic-cb-mr) 0 var(--yic-cb-ml) !important;
+  /* статусный флажок крупнее пустого: отступы уменьшены на половину разницы
+     с каждой стороны, а сам он опущен на половину разницы, — центры всех
+     флажков совпадают, текст начинается в одном месте */
+  --yic-cb-half: calc((var(--yic-cb-size-on) - var(--yic-cb-size)) / 2);
+  width: var(--yic-cb-size-on) !important;
+  height: var(--yic-cb-size-on) !important;
+  margin: 0 calc(var(--yic-cb-mr) - var(--yic-cb-half)) 0 calc(var(--yic-cb-ml) - var(--yic-cb-half)) !important;
+  top: var(--yic-cb-half) !important;
   box-sizing: border-box !important;
   position: relative !important;
   flex-shrink: 0;
   cursor: pointer !important;
+}
+
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-task-line input.task-list-item-checkbox.task-list-item-checkbox:not(:checked) {
+  width: var(--yic-cb-size) !important;
+  height: var(--yic-cb-size) !important;
+  margin: 0 var(--yic-cb-mr) 0 var(--yic-cb-ml) !important;
+  top: 0 !important;
 }
 
 /* Одинаковый курсор на всех состояниях и значках */

@@ -655,7 +655,8 @@ function taskMenuSpec(input) {
     items: TASK_STATES.map(([ch, label]) => ({
       value: ch,
       render(el) {
-        const box = el.createEl("input", { cls: "task-list-item-checkbox", type: "checkbox" });
+        const slot = el.createSpan({ cls: "yic-task-menu-slot" });
+        const box = slot.createEl("input", { cls: "task-list-item-checkbox", type: "checkbox" });
         box.tabIndex = -1;
         if (ch !== " ") {
           box.checked = true;
