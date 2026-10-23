@@ -1,5 +1,5 @@
 const { Plugin } = require('obsidian');
-const { ViewPlugin, Decoration, WidgetType } = require('@codemirror/view');
+const { ViewPlugin, Decoration, WidgetType, EditorView } = require('@codemirror/view');
 
 /* ═══════════════════════════════════════════════
    КАРТА ИКОНОК (Unicode escape для надёжности)
@@ -285,12 +285,299 @@ function smartInsertDigit(editor) {
 }
 
 /* ═══════════════════════════════════════════════
+   ЗАДАЧИ MARKDOWN  - [ ]
+   ═══════════════════════════════════════════════ */
+
+/* Круг по щелчку */
+const TASK_CYCLE = [" ", "ю", "+", "-"];
+
+/* Пункты меню при наведении, в этом порядке */
+const TASK_STATES = [
+  [" ", "Не начато"],
+  ["ю", "В работе"],
+  ["+", "Готово"],
+  ["-", "Отказ"],
+  ["а", "Срочно"],
+  ["!", "Важно"],
+  ["?", "Вопрос"],
+  ["=", "Пауза"],
+  ["и", "Работает ИИ"],
+  ["x", "Выполнено (x)"]
+];
+
+const MENU_SHOW_DELAY = 400;   // мс до появления меню
+const MENU_HIDE_DELAY = 250;   // мс до скрытия после ухода мыши
+
+function nextTaskState(ch) {
+  const i = TASK_CYCLE.indexOf(ch);
+  return i === -1 ? TASK_CYCLE[0] : TASK_CYCLE[(i + 1) % TASK_CYCLE.length];
+}
+
+/* Строка задачи: префикс до символа состояния и сам символ */
+const TASK_LINE_RE = /^((?:[ \t]*>)*[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+\[)([^\]])\]/;
+
+/* Пункт списка: цитата, отступ, маркер, состояние задачи (если есть) */
+const LIST_RE = /^((?:[ \t]*>)*)([ \t]*)([-*+]|\d{1,9}[.)])(?:[ \t]+|$)(?:\[([^\]])\](?=[ \t]|$))?/;
+const QUOTE_RE = /^((?:[ \t]*>)*)([ \t]*)/;
+const FENCE_RE = /^(?:[ \t]*>)*[ \t]*(```|~~~)/;
+
+function visualWidth(ws, tabSize) {
+  let w = 0;
+  for (const c of ws) w = c === "\t" ? w + tabSize - (w % tabSize) : w + 1;
+  return w;
+}
+
+/* --- номера задач по уровням --- */
+
+class TaskNumWidget extends WidgetType {
+  constructor(num) { super(); this.num = num; }
+  toDOM(view) {
+    const s = view.dom.ownerDocument.createElement("span");
+    s.className = "yic-task-num";
+    s.setAttribute("contenteditable", "false");
+    s.setAttribute("aria-hidden", "true");
+    s.createSpan({ cls: "yic-task-num-inner", text: String(this.num) });
+    return s;
+  }
+  eq(o) { return o.num === this.num; }
+  ignoreEvent() { return true; }
+}
+
+/* Возвращает [{pos, num}] — позиция маркера списка и номер задачи.
+   Каждый уровень вложенности считается отдельно с 1.
+   Номер ставится, только если на уровне больше одного пункта
+   (как в режиме чтения). Задачи в нумерованных списках не нумеруются. */
+function computeTaskNumbers(doc, tabSize) {
+  const out = [];
+  const stack = [];
+  let quote = null, inFence = false, inFm = false;
+
+  const flush = (lvl) => {
+    if (lvl.ordered || lvl.items < 2) return;
+    lvl.tasks.forEach((pos, i) => out.push({ pos, num: i + 1 }));
+  };
+  const closeAll = () => {
+    while (stack.length) flush(stack.pop());
+    quote = null;
+  };
+
+  for (let n = 1; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    const text = line.text;
+
+    if (n === 1 && /^---\s*$/.test(text)) { inFm = true; continue; }
+    if (inFm) { if (/^(---|\.\.\.)\s*$/.test(text)) inFm = false; continue; }
+
+    if (FENCE_RE.test(text)) { inFence = !inFence; closeAll(); continue; }
+    if (inFence) continue;
+
+    const m = LIST_RE.exec(text);
+    if (!m) {
+      const qm = QUOTE_RE.exec(text);
+      const q = qm[1].replace(/[ \t]/g, "");
+      const rest = text.slice(qm[0].length);
+      if (rest === "") continue;                                  // пустая строка
+      if (stack.length && q === quote && qm[2].length > 0) continue; // продолжение пункта
+      closeAll();
+      continue;
+    }
+
+    const q = m[1].replace(/[ \t]/g, "");
+    if (stack.length && q !== quote) closeAll();
+    quote = q;
+
+    const indent = visualWidth(m[2], tabSize);
+    const ordered = /\d/.test(m[3]);
+
+    while (stack.length && stack[stack.length - 1].indent > indent) flush(stack.pop());
+    let top = stack[stack.length - 1];
+    if (top && top.indent === indent && top.ordered !== ordered) {
+      flush(stack.pop());
+      top = null;
+    }
+    if (!top || top.indent < indent) {
+      top = { indent, ordered, items: 0, tasks: [] };
+      stack.push(top);
+    }
+
+    top.items++;
+    if (m[4] !== undefined) top.tasks.push(line.from + m[1].length + m[2].length);
+  }
+  closeAll();
+  return out;
+}
+
+function buildTaskNumberDecorations(view) {
+  const list = computeTaskNumbers(view.state.doc, view.state.tabSize);
+  return Decoration.set(
+    list.map(({ pos, num }) =>
+      Decoration.widget({ widget: new TaskNumWidget(num), side: -1 }).range(pos)
+    ),
+    true
+  );
+}
+
+const taskNumbersExt = ViewPlugin.fromClass(
+  class {
+    constructor(v) { this.decorations = buildTaskNumberDecorations(v); }
+    update(u) {
+      if (u.docChanged) this.decorations = buildTaskNumberDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+/* --- щелчок и меню --- */
+
+function isTaskCheckbox(el) {
+  return !!el && el.tagName === "INPUT" &&
+    el.classList.contains("task-list-item-checkbox") &&
+    !!el.closest(".markdown-source-view.is-live-preview") &&
+    !el.closest(".yic-task-menu");
+}
+
+/* Где в документе стоит чекбокс и какой у него символ */
+function getTaskContext(input) {
+  if (!isTaskCheckbox(input)) return null;
+  const cmEl = input.closest(".cm-editor");
+  if (!cmEl) return null;
+  const view = EditorView.findFromDOM(cmEl);
+  if (!view) return null;
+  let pos;
+  try { pos = view.posAtDOM(input); } catch (e) { return null; }
+  const line = view.state.doc.lineAt(pos);
+  const m = TASK_LINE_RE.exec(line.text);
+  if (!m) return null;
+  return { view, lineFrom: line.from, char: m[2] };
+}
+
+/* Меняет символ в квадратных скобках задачи на строке lineFrom */
+function setTaskState(view, lineFrom, ch) {
+  const doc = view.state.doc;
+  if (lineFrom > doc.length) return;
+  const line = doc.lineAt(lineFrom);
+  const m = TASK_LINE_RE.exec(line.text);
+  if (!m || m[2] === ch) return;
+  const at = line.from + m[1].length;
+  view.dispatch({
+    changes: { from: at, to: at + m[2].length, insert: ch },
+    userEvent: "input.yic-task"
+  });
+}
+
+class TaskStateMenu {
+  constructor() {
+    this.el = null;
+    this.ctx = null;
+    this.anchor = null;
+    this.showTimer = null;
+    this.hideTimer = null;
+  }
+
+  scheduleShow(input) {
+    this.cancelHide();
+    if (this.anchor === input && this.el) return;
+    clearTimeout(this.showTimer);
+    this.showTimer = setTimeout(() => this.show(input), MENU_SHOW_DELAY);
+  }
+
+  cancelShow() {
+    clearTimeout(this.showTimer);
+    this.showTimer = null;
+  }
+
+  scheduleHide() {
+    this.cancelShow();
+    clearTimeout(this.hideTimer);
+    this.hideTimer = setTimeout(() => this.hide(), MENU_HIDE_DELAY);
+  }
+
+  cancelHide() {
+    clearTimeout(this.hideTimer);
+    this.hideTimer = null;
+  }
+
+  show(input) {
+    this.showTimer = null;
+    if (!input.isConnected) return;
+    const ctx = getTaskContext(input);
+    if (!ctx) return;
+    this.hide();
+
+    this.ctx = ctx;
+    this.anchor = input;
+    const doc = input.ownerDocument;
+    const menu = doc.body.createDiv({ cls: "yic-task-menu" });
+
+    for (const [ch, label] of TASK_STATES) {
+      const item = menu.createDiv({ cls: "yic-task-menu-item" });
+      if (ch === ctx.char) item.addClass("is-current");
+
+      const box = item.createEl("input", { cls: "task-list-item-checkbox", type: "checkbox" });
+      box.tabIndex = -1;
+      if (ch !== " ") {
+        box.checked = true;
+        box.setAttribute("data-task", ch);
+      }
+      item.createSpan({ cls: "yic-task-menu-label", text: label });
+      item.createSpan({ cls: "yic-task-menu-key", text: `[${ch}]` });
+
+      item.addEventListener("mousedown", (e) => e.preventDefault());
+      item.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const { view, lineFrom } = this.ctx;
+        this.hide();
+        setTaskState(view, lineFrom, ch);
+        view.focus();
+      });
+    }
+
+    menu.addEventListener("mouseenter", () => this.cancelHide());
+    menu.addEventListener("mouseleave", () => this.scheduleHide());
+
+    /* под чекбоксом, не выходя за окно */
+    const r = input.getBoundingClientRect();
+    const win = doc.defaultView;
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let left = r.left;
+    let top = r.bottom + 4;
+    if (left + mw > win.innerWidth - 8) left = win.innerWidth - mw - 8;
+    if (top + mh > win.innerHeight - 8) top = r.top - mh - 4;
+    menu.style.left = Math.max(8, left) + "px";
+    menu.style.top = Math.max(8, top) + "px";
+
+    this.el = menu;
+  }
+
+  hide() {
+    this.cancelShow();
+    this.cancelHide();
+    if (this.el) this.el.remove();
+    this.el = null;
+    this.ctx = null;
+    this.anchor = null;
+  }
+
+  contains(node) {
+    return !!this.el && !!node && this.el.contains(node);
+  }
+}
+
+/* ═══════════════════════════════════════════════
    ПЛАГИН
    ═══════════════════════════════════════════════ */
 
 class InlineCheckboxPlugin extends Plugin {
   async onload() {
-    this.registerEditorExtension([ext]);
+    this.registerEditorExtension([ext, taskNumbersExt]);
+
+    this.taskMenu = new TaskStateMenu();
+    this.register(() => this.taskMenu.hide());
+    this.registerTaskHandlers(window);
+    this.registerEvent(this.app.workspace.on("window-open", (_w, win) => this.registerTaskHandlers(win)));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.taskMenu.hide()));
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.taskMenu.hide()));
 
     this.addCommand({
       id: 'toggle-checkbox',
@@ -307,6 +594,50 @@ class InlineCheckboxPlugin extends Plugin {
         smartInsertDigit(editor);
       }
     });
+  }
+
+  /* Перехват щелчка по чекбоксу задачи и наведение — в фазе захвата,
+     раньше обработчиков Obsidian, которые переключают [ ] ↔ [x] */
+  registerTaskHandlers(win) {
+    const menu = this.taskMenu;
+    const opts = { capture: true };
+
+    const block = (e) => {
+      if (!isTaskCheckbox(e.target)) return;
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      if (e.type !== "pointerdown") e.preventDefault();
+    };
+    this.registerDomEvent(win, "pointerdown", block, opts);
+    this.registerDomEvent(win, "mousedown", block, opts);
+    this.registerDomEvent(win, "mouseup", block, opts);
+
+    this.registerDomEvent(win, "click", (e) => {
+      if (!isTaskCheckbox(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      if (e.button !== 0) return;
+      const ctx = getTaskContext(e.target);
+      menu.hide();
+      if (!ctx) return;
+      setTaskState(ctx.view, ctx.lineFrom, nextTaskState(ctx.char));
+    }, opts);
+
+    this.registerDomEvent(win, "mouseover", (e) => {
+      if (isTaskCheckbox(e.target)) menu.scheduleShow(e.target);
+    }, opts);
+
+    this.registerDomEvent(win, "mouseout", (e) => {
+      if (!isTaskCheckbox(e.target)) return;
+      if (menu.contains(e.relatedTarget)) return;
+      if (menu.el) menu.scheduleHide(); else menu.cancelShow();
+    }, opts);
+
+    this.registerDomEvent(win, "keydown", () => menu.hide(), opts);
+    this.registerDomEvent(win, "wheel", (e) => {
+      if (!menu.contains(e.target)) menu.hide();
+    }, { capture: true, passive: true });
   }
 }
 

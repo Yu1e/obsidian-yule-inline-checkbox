@@ -57,6 +57,15 @@ Use these for priorities, numbered steps, or ratings. You no longer need to trac
 ### Mouse Click
 Click any checkbox or digit in the text to toggle its state. When switching digits, subsequent digits in the line will be automatically re-indexed.
 
+## Markdown Tasks `- [ ]`
+
+The plugin also styles regular Markdown tasks (states `[ ]`, `[ю]`, `[+]`, `[-]`, `[а]`, `[!]`, `[?]`, `[=]`, `[и]`) in Live Preview:
+- click on a task checkbox cycles `[ ] → [ю] → [+] → [-] → [ ]`; any other state goes to `[ ]`;
+- hovering over a checkbox opens a list of all states;
+- tasks are numbered separately at each nesting level; a list with a single item gets no number.
+
+Number position and color are set by the `--yic-num-*` variables in `styles.css`.
+
 ## Customization
 To change colors and sizes, edit the variables at the beginning of the `styles.css` file:
 
@@ -151,6 +160,15 @@ The author does not plan to actively develop this plugin. You are free to:
 
 ### Клик мышью
 Кликните по флажку или цифре в тексте — состояние переключится. При переключении цифр последующие цифры в строке также будут пересчитаны.
+
+## Задачи Markdown `- [ ]`
+
+Плагин оформляет и обычные задачи Markdown (состояния `[ ]`, `[ю]`, `[+]`, `[-]`, `[а]`, `[!]`, `[?]`, `[=]`, `[и]`) в Live Preview:
+- щелчок по чекбоксу задачи переключает `[ ] → [ю] → [+] → [-] → [ ]`, любое другое состояние сменяется на `[ ]`;
+- при наведении на чекбокс открывается список всех состояний;
+- задачи нумеруются отдельно на каждом уровне вложенности, у списка из одного пункта номера нет.
+
+Положение и цвет номеров задаются переменными `--yic-num-*` в `styles.css`.
 
 ## Настройка оформления
 Для изменения цветов и размеров редактируйте переменные в начале файла `styles.css`:
